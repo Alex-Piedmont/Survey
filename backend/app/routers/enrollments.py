@@ -80,6 +80,7 @@ async def bulk_enroll(
         user_result = await db.execute(select(User).where(User.email == email))
         if user_result.scalar_one_or_none() is None:
             db.add(User(email=email))
+            await db.flush()
 
         db.add(Enrollment(section_id=section_id, student_email=email, role="student"))
         enrolled.append(email)
