@@ -1,43 +1,46 @@
-# Phase 6: Polish + Deploy
+# Frontend Phase 1: Scaffolding + Auth + Student Feedback Flow
 
 ## Scope
-Fix remaining PRD gaps, add student role detection, default templates, Alembic migrations, and general hardening.
+Set up React + TypeScript + Vite project, implement auth (Google OAuth + OTP),
+and build the core student feedback flow (QR scan landing → multi-page form → confirmation).
 
 ## Verification Criteria
-- Student role detection works in GET /api/v1/s/{uuid} (presenter vs audience)
-- Default templates seeded for three presentation types (FR-11)
-- Alembic initial migration created and runnable
-- /me/submissions returns latest versions only
-- Instructor manual verify endpoint works (FR-2a)
-- All tests pass
+- Vite dev server runs without errors
+- Auth flow works (OTP login for dev, Google OAuth stub)
+- Student can view session form via /s/{uuid}
+- Multi-page feedback form with per-page server saves
+- Likert scale and free-text components work
+- Progress bar shows completion
+- Confirmation screen after final submit
 
 ---
 
 ## Tasks
 
-### 1. Student Role Detection
-- [ ] Update `GET /api/v1/s/{uuid}` to detect student_role and student_team_id from auth (optional auth)
+### 1. Project Scaffolding
+- [ ] Vite + React + TypeScript project in /frontend
+- [ ] Tailwind CSS setup
+- [ ] React Router DOM routes
+- [ ] API client (fetch wrapper with auth headers)
+- [ ] Auth context (token storage, login/logout)
+- [ ] React Query setup
 
-### 2. Default Templates (FR-11)
-- [ ] `app/services/seed.py` — Seed default templates for Strategic Headlines, Learning Team Debates, Class Strategy Project
-- [ ] Startup hook or CLI command to run seeds
+### 2. Auth Pages
+- [ ] Login page with email OTP flow (dev mode)
+- [ ] Google OAuth button (stub for now)
+- [ ] Auth state persisted in localStorage
+- [ ] Protected route wrapper
 
-### 3. Instructor Manual Verify (FR-2a)
-- [ ] `POST /api/v1/sections/{id}/verify-student` — Instructor grants session token to student without OTP
+### 3. Student Feedback Flow
+- [ ] /s/:sessionId — Session landing page (loads session data)
+- [ ] Multi-page form: one page per target team (audience) + per peer (presenter)
+- [ ] LikertScale component (1-5 radio buttons)
+- [ ] FreeTextInput component (textarea)
+- [ ] Per-page "Save & Next" submits to backend
+- [ ] Progress bar showing page X of N
+- [ ] Back navigation between pages
+- [ ] Final "Save & Finish" with confirmation screen
 
-### 4. /me/submissions Latest Only
-- [ ] Fix `GET /api/v1/me/submissions` to return latest version per target only
-
-### 5. Alembic Migration
-- [ ] Generate initial migration from current models
-- [ ] Verify migration runs cleanly
-
-### 6. Tests
-- [ ] Test student role detection (presenter vs audience)
-- [ ] Test instructor manual verify
-- [ ] Test /me/submissions latest-only behavior
-
----
-
-## Review
-(To be filled after implementation)
+### 4. My Submissions
+- [ ] /me/submissions — List student's submissions
+- [ ] Link back to session for editing within 7-day window
