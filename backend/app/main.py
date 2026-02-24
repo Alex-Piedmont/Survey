@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.routers import auth, courses, enrollments, sessions, surveys, teams
+from app.routers import auth, courses, enrollments, feedback, sessions, surveys, teams
 
 app = FastAPI(title="Classroom Survey Platform", version="0.1.0")
 
@@ -20,6 +20,7 @@ app.include_router(enrollments.router)
 app.include_router(surveys.router)
 app.include_router(teams.router)
 app.include_router(sessions.router)
+app.include_router(feedback.router)
 
 
 @app.get("/health")
