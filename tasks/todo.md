@@ -1,48 +1,39 @@
-# Phase 4: Live Dashboard + Summary
+# Phase 5: Exports + Notifications
 
 ## Scope
-Instructor dashboard with real-time submission tracking, session summary with aggregated results, instructor feedback, presentation quality grades, session listing, and comment withholding.
+CSV/XLSX export of session data, email notification service for late submissions, and any remaining endpoint gaps.
 
 ## Verification Criteria
-- Dashboard shows submission progress (X/Y submitted) and per-team averages
-- Summary shows aggregated Likert scores (mean, median, std dev) and free-text comments
-- Instructor can submit their own feedback scores
-- Instructor can assign presentation quality grade per team
-- Instructor can withhold specific comments
-- WebSocket broadcasts submission events in real time
-- Session listing endpoint for sections
+- CSV export returns correct data with proper columns
+- XLSX export has 4 sheets: participation summary, audience responses, peer responses, instructor feedback/grades
+- Export is filterable by section/presentation type
+- Notification service stubs SendGrid integration (testable without live email)
 - All tests pass
 
 ---
 
 ## Tasks
 
-### 1. New Models
-- [ ] `app/models/presentation_grade.py` — PresentationGrade (session_id, team_id, grade, comments)
-- [ ] Update `app/models/__init__.py`
+### 1. Export Service
+- [ ] `app/services/exports.py` — Build CSV and XLSX exports
+  - Sheet 1: Per-student participation and penalty summary
+  - Sheet 2: Audience feedback raw responses
+  - Sheet 3: Peer feedback raw responses
+  - Sheet 4: Instructor feedback and presentation quality grades
 
-### 2. Aggregation Service
-- [ ] `app/services/aggregations.py` — Compute per-team Likert stats (mean, median, std dev, histogram), group free-text comments, build participation matrix
+### 2. Export Router
+- [ ] `GET /api/v1/sessions/{id}/export?format=csv` — CSV download
+- [ ] `GET /api/v1/sessions/{id}/export?format=xlsx` — XLSX download
 
-### 3. Pydantic Schemas
-- [ ] `app/schemas/dashboard.py` — DashboardResponse, SummaryResponse, InstructorFeedbackCreate, PresentationGradeCreate/Response, CommentWithhold
+### 3. Notification Service
+- [ ] `app/services/notifications.py` — Late submission email alerts
+  - Stub SendGrid integration (env var controlled)
+  - Notify instructor + TAs on late submissions
+- [ ] Hook into feedback router to trigger on late submission
 
-### 4. Dashboard Router
-- [ ] `GET /api/v1/sessions/{id}/dashboard` — Submission progress, per-team averages, non-submitter list
-- [ ] `GET /api/v1/sessions/{id}/summary` — Full aggregations, free-text comments, participation matrix, grades
-- [ ] `POST /api/v1/sessions/{id}/instructor-feedback` — Instructor submits their own scores per team
-- [ ] `POST /api/v1/sessions/{id}/teams/{team_id}/presentation-grade` — Assign quality grade
-- [ ] `PUT /api/v1/sessions/{id}/comments/{submission_id}/withhold` — Withhold a comment
-- [ ] `GET /api/v1/sections/{id}/sessions` — List sessions for a section
-
-### 5. WebSocket
-- [ ] `app/ws/manager.py` — WebSocket connection manager
-- [ ] `WS /ws/sessions/{id}` — Live dashboard updates
-- [ ] Update feedback router to broadcast on new submission
-
-### 6. Tests
-- [ ] `tests/test_dashboard.py` — Dashboard data, summary aggregation, instructor feedback, grades, comment withholding, session listing
-- [ ] `tests/test_websocket.py` — WebSocket connection and broadcast
+### 4. Tests
+- [ ] `tests/test_exports.py` — CSV/XLSX content validation
+- [ ] `tests/test_notifications.py` — Notification triggers (mocked email)
 
 ---
 

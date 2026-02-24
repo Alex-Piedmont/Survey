@@ -14,6 +14,7 @@ from app.models.submission import Submission
 from app.models.team import Team, TeamMembership
 from app.models.user import User
 from app.schemas.submission import SubmissionResponse, SubmitFeedback
+from app.services.notifications import notify_late_submission
 from app.services.penalties import calculate_penalty
 from app.ws.manager import manager
 
@@ -201,6 +202,10 @@ async def submit_feedback(
         "target_team_id": body.target_team_id,
         "version": submission.version,
     })
+
+    # Notify instructor/TAs on late submission
+    if is_late:
+        await notify_late_submission(db, session, current_user.email, penalty_pct)
 
     return SubmissionResponse.model_validate(submission)
 

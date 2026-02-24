@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import Response
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -395,3 +396,32 @@ async def list_sessions(
         ))
 
     return items
+
+
+@router.get("/api/v1/sessions/{session_id}/export")
+async def export_session(
+    session_id: str,
+    format: str = Query("csv", pattern="^(csv|xlsx)$"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Export session data as CSV or XLSX."""
+    session = await _get_session_with_teams(db, session_id)
+    await _require_instructor(db, session, current_user.email)
+
+    from app.services.exports import export_session_csv, export_session_xlsx
+
+    if format == "csv":
+        content = await export_session_csv(db, session_id)
+        return Response(
+            content=content,
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=session_{session_id}.csv"},
+        )
+    else:
+        content = await export_session_xlsx(db, session_id)
+        return Response(
+            content=content,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename=session_{session_id}.xlsx"},
+        )
