@@ -15,6 +15,7 @@ from app.models.team import Team, TeamMembership
 from app.models.user import User
 from app.schemas.submission import SubmissionResponse, SubmitFeedback
 from app.services.penalties import calculate_penalty
+from app.ws.manager import manager
 
 router = APIRouter(tags=["feedback"])
 
@@ -191,6 +192,15 @@ async def submit_feedback(
     db.add(submission)
     await db.commit()
     await db.refresh(submission)
+
+    # Broadcast to live dashboard
+    await manager.broadcast(session_id, {
+        "type": "new_submission",
+        "student_email": current_user.email,
+        "feedback_type": body.feedback_type,
+        "target_team_id": body.target_team_id,
+        "version": submission.version,
+    })
 
     return SubmissionResponse.model_validate(submission)
 

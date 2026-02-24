@@ -1,5 +1,6 @@
 from app.models.course import Course
 from app.models.enrollment import Enrollment
+from app.models.presentation_grade import PresentationGrade
 from app.models.section import Section
 from app.models.session import Session, SessionTeam
 from app.models.submission import Submission
@@ -20,4 +21,5 @@ __all__ = [
     "Session",
     "SessionTeam",
     "Submission",
+    "PresentationGrade",
 ]

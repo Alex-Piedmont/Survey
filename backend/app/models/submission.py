@@ -44,3 +44,4 @@ class Submission(Base):
     )
     is_late: Mapped[bool] = mapped_column(Boolean, default=False)
     penalty_pct: Mapped[int] = mapped_column(Integer, default=0)
+    withheld: Mapped[bool] = mapped_column(Boolean, default=False)
