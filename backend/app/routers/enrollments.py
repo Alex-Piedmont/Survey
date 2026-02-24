@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
+from app.core.security import create_access_token
 from app.models.enrollment import Enrollment
 from app.models.section import Section
 from app.models.user import User
@@ -151,3 +152,44 @@ async def update_role(
     enrollment.role = body.role
     await db.commit()
     return {"email": email, "role": body.role}
+
+
+@router.post("/{section_id}/verify-student")
+async def verify_student(
+    section_id: str,
+    body: dict,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Instructor manually verifies a student, granting them a session token (FR-2a).
+    Fallback when OTP delivery fails."""
+    await _verify_instructor(db, section_id, current_user.email)
+
+    email = body.get("email", "").strip().lower()
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="email is required",
+        )
+
+    # Verify student is enrolled
+    result = await db.execute(
+        select(Enrollment).where(
+            Enrollment.section_id == section_id,
+            Enrollment.student_email == email,
+        )
+    )
+    if result.scalar_one_or_none() is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Student not found in this section",
+        )
+
+    # Ensure user record exists
+    user_result = await db.execute(select(User).where(User.email == email))
+    if user_result.scalar_one_or_none() is None:
+        db.add(User(email=email))
+        await db.commit()
+
+    token = create_access_token(email)
+    return {"access_token": token, "token_type": "bearer"}

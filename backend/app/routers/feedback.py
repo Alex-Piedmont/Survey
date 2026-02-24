@@ -262,9 +262,36 @@ async def get_all_my_submissions(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get all submissions by the current user across all sessions."""
+    """Get all submissions by the current user across all sessions (latest versions only)."""
+    subq = (
+        select(
+            Submission.session_id,
+            Submission.target_team_id,
+            Submission.target_student_email,
+            func.max(Submission.version).label("max_version"),
+        )
+        .where(Submission.student_email == current_user.email)
+        .group_by(
+            Submission.session_id,
+            Submission.target_team_id,
+            Submission.target_student_email,
+        )
+        .subquery()
+    )
+
     result = await db.execute(
         select(Submission)
+        .join(
+            subq,
+            (Submission.session_id == subq.c.session_id)
+            & (Submission.target_team_id == subq.c.target_team_id)
+            & or_(
+                Submission.target_student_email == subq.c.target_student_email,
+                (Submission.target_student_email.is_(None))
+                & (subq.c.target_student_email.is_(None)),
+            )
+            & (Submission.version == subq.c.max_version),
+        )
         .where(Submission.student_email == current_user.email)
         .order_by(Submission.submitted_at.desc())
     )

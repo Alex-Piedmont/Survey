@@ -16,6 +16,7 @@ from app.schemas.survey import (
     TemplateResponse,
     TemplateUpdate,
 )
+from app.services.seed import DEFAULT_TEMPLATES
 
 router = APIRouter(tags=["surveys"])
 
@@ -196,3 +197,53 @@ async def update_template(
         created_at=new_template.created_at,
         questions=[QuestionResponse.model_validate(q) for q in questions],
     )
+
+
+@router.post(
+    "/api/v1/courses/{course_id}/seed-defaults",
+    status_code=status.HTTP_201_CREATED,
+)
+async def seed_default_templates(
+    course_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Seed default presentation types with pre-built templates (FR-11).
+    Creates Strategic Headlines, Learning Team Debates, and Class Strategy Project."""
+    await _verify_course_instructor(db, course_id, current_user.email)
+
+    created = []
+    for name, config in DEFAULT_TEMPLATES.items():
+        # Check if already exists
+        existing = await db.execute(
+            select(PresentationType).where(
+                PresentationType.course_id == course_id,
+                PresentationType.name == name,
+            )
+        )
+        if existing.scalar_one_or_none():
+            continue
+
+        ptype = PresentationType(course_id=course_id, name=name)
+        db.add(ptype)
+        await db.flush()
+
+        template = SurveyTemplate(presentation_type_id=ptype.id, version=1)
+        db.add(template)
+        await db.flush()
+
+        for q_data in config["questions"]:
+            db.add(Question(
+                template_id=template.id,
+                question_text=q_data["question_text"],
+                question_type=q_data["question_type"],
+                category=q_data["category"],
+                is_required=q_data.get("is_required", True),
+                sort_order=q_data["sort_order"],
+                is_active=True,
+            ))
+
+        created.append(name)
+
+    await db.commit()
+    return {"created": created}

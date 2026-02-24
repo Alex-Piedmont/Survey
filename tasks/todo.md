@@ -1,39 +1,41 @@
-# Phase 5: Exports + Notifications
+# Phase 6: Polish + Deploy
 
 ## Scope
-CSV/XLSX export of session data, email notification service for late submissions, and any remaining endpoint gaps.
+Fix remaining PRD gaps, add student role detection, default templates, Alembic migrations, and general hardening.
 
 ## Verification Criteria
-- CSV export returns correct data with proper columns
-- XLSX export has 4 sheets: participation summary, audience responses, peer responses, instructor feedback/grades
-- Export is filterable by section/presentation type
-- Notification service stubs SendGrid integration (testable without live email)
+- Student role detection works in GET /api/v1/s/{uuid} (presenter vs audience)
+- Default templates seeded for three presentation types (FR-11)
+- Alembic initial migration created and runnable
+- /me/submissions returns latest versions only
+- Instructor manual verify endpoint works (FR-2a)
 - All tests pass
 
 ---
 
 ## Tasks
 
-### 1. Export Service
-- [ ] `app/services/exports.py` — Build CSV and XLSX exports
-  - Sheet 1: Per-student participation and penalty summary
-  - Sheet 2: Audience feedback raw responses
-  - Sheet 3: Peer feedback raw responses
-  - Sheet 4: Instructor feedback and presentation quality grades
+### 1. Student Role Detection
+- [ ] Update `GET /api/v1/s/{uuid}` to detect student_role and student_team_id from auth (optional auth)
 
-### 2. Export Router
-- [ ] `GET /api/v1/sessions/{id}/export?format=csv` — CSV download
-- [ ] `GET /api/v1/sessions/{id}/export?format=xlsx` — XLSX download
+### 2. Default Templates (FR-11)
+- [ ] `app/services/seed.py` — Seed default templates for Strategic Headlines, Learning Team Debates, Class Strategy Project
+- [ ] Startup hook or CLI command to run seeds
 
-### 3. Notification Service
-- [ ] `app/services/notifications.py` — Late submission email alerts
-  - Stub SendGrid integration (env var controlled)
-  - Notify instructor + TAs on late submissions
-- [ ] Hook into feedback router to trigger on late submission
+### 3. Instructor Manual Verify (FR-2a)
+- [ ] `POST /api/v1/sections/{id}/verify-student` — Instructor grants session token to student without OTP
 
-### 4. Tests
-- [ ] `tests/test_exports.py` — CSV/XLSX content validation
-- [ ] `tests/test_notifications.py` — Notification triggers (mocked email)
+### 4. /me/submissions Latest Only
+- [ ] Fix `GET /api/v1/me/submissions` to return latest version per target only
+
+### 5. Alembic Migration
+- [ ] Generate initial migration from current models
+- [ ] Verify migration runs cleanly
+
+### 6. Tests
+- [ ] Test student role detection (presenter vs audience)
+- [ ] Test instructor manual verify
+- [ ] Test /me/submissions latest-only behavior
 
 ---
 

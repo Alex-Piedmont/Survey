@@ -3,7 +3,8 @@ import io
 from datetime import datetime, time, timedelta, timezone
 
 import qrcode
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -11,6 +12,7 @@ from sqlalchemy.orm import selectinload
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.deps import get_current_user
+from app.core.security import verify_access_token
 from app.models.course import Course
 from app.models.enrollment import Enrollment
 from app.models.section import Section
@@ -214,12 +216,17 @@ async def get_qr_code(
     return QRCodeResponse(session_id=session.id, qr_url=qr_url, qr_base64=qr_base64)
 
 
+_optional_bearer = HTTPBearer(auto_error=False)
+
+
 @router.get("/api/v1/s/{session_id}", response_model=StudentSessionResponse)
 async def get_student_session(
     session_id: str,
     db: AsyncSession = Depends(get_db),
+    credentials: HTTPAuthorizationCredentials | None = Depends(_optional_bearer),
 ):
-    """Student-facing endpoint: get session form data. No auth required for GET (FR-14)."""
+    """Student-facing endpoint: get session form data. Auth optional (FR-14).
+    If authenticated, returns student_role and student_team_id."""
     result = await db.execute(
         select(Session)
         .options(selectinload(Session.session_teams))
@@ -249,6 +256,7 @@ async def get_student_session(
 
     # Get presenting teams with members
     presenting_teams = []
+    team_members: dict[str, list[str]] = {}
     for st in session.session_teams:
         team = await db.execute(
             select(Team)
@@ -256,10 +264,12 @@ async def get_student_session(
             .where(Team.id == st.team_id)
         )
         team = team.scalar_one()
+        members = [m.student_email for m in team.memberships]
+        team_members[team.id] = members
         presenting_teams.append({
             "id": team.id,
             "name": team.name,
-            "members": [m.student_email for m in team.memberships],
+            "members": members,
         })
 
     questions = [
@@ -276,6 +286,18 @@ async def get_student_session(
         if q.is_active
     ]
 
+    # Detect student role from optional auth
+    student_role = "audience"
+    student_team_id = None
+    if credentials:
+        email = verify_access_token(credentials.credentials)
+        if email:
+            for tid, members in team_members.items():
+                if email in members:
+                    student_role = "presenter"
+                    student_team_id = tid
+                    break
+
     return StudentSessionResponse(
         session_id=session.id,
         course_name=course.name,
@@ -286,6 +308,6 @@ async def get_student_session(
         status=session.status,
         presenting_teams=presenting_teams,
         questions=questions,
-        student_role="audience",  # Will be determined with auth in Phase 3
-        student_team_id=None,
+        student_role=student_role,
+        student_team_id=student_team_id,
     )
