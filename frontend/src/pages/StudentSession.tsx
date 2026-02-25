@@ -45,7 +45,7 @@ interface FeedbackTarget {
 
 export function StudentSession() {
   const { sessionId } = useParams<{ sessionId: string }>();
-  const { isAuthenticated, email } = useAuth();
+  const { isAuthenticated, email, logout } = useAuth();
   const navigate = useNavigate();
 
   const [session, setSession] = useState<SessionData | null>(null);
@@ -234,7 +234,14 @@ export function StudentSession() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
         <div className="text-center">
           <h2 className="text-xl font-semibold text-gray-900 mb-2">No feedback to submit</h2>
-          <p className="text-gray-600">There are no targets available for your feedback.</p>
+          <p className="text-gray-600 mb-2">There are no targets available for your feedback.</p>
+          <p className="text-sm text-gray-400 mb-4">Signed in as {email}</p>
+          <button
+            onClick={() => { logout(); navigate(`/login?redirect=/s/${sessionId}`); }}
+            className="text-sm text-blue-600 hover:underline"
+          >
+            Sign out &amp; use a different email
+          </button>
         </div>
       </div>
     );
@@ -273,12 +280,23 @@ export function StudentSession() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b px-4 py-3">
-        <div className="max-w-lg mx-auto">
-          <div className="text-sm text-gray-500">
-            {session.course_name} &middot; {session.section_name}
+        <div className="max-w-lg mx-auto flex items-center justify-between">
+          <div>
+            <div className="text-sm text-gray-500">
+              {session.course_name} &middot; {session.section_name}
+            </div>
+            <div className="text-sm text-gray-400">
+              {session.presentation_type_name} &middot; {session.session_date}
+            </div>
           </div>
-          <div className="text-sm text-gray-400">
-            {session.presentation_type_name} &middot; {session.session_date}
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-gray-400">{email}</span>
+            <button
+              onClick={() => { logout(); navigate(`/login?redirect=/s/${sessionId}`); }}
+              className="text-xs text-gray-500 hover:text-gray-900"
+            >
+              Sign out
+            </button>
           </div>
         </div>
       </div>
