@@ -12,7 +12,7 @@ export function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const redirect = searchParams.get('redirect') || '/';
+  const redirect = searchParams.get('redirect') || '/instructor';
 
   const requestOTP = async () => {
     setError('');
