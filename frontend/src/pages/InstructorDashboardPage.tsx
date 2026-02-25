@@ -5,7 +5,7 @@ import { api } from '../api/client';
 interface TeamScore {
   team_id: string;
   team_name: string;
-  scores: Record<string, { mean: number; count: number }>;
+  scores: Record<string, { mean: number; count: number; question_text?: string }>;
 }
 
 interface Dashboard {
@@ -143,7 +143,7 @@ export function InstructorDashboardPage() {
                   <div className="space-y-1">
                     {entries.map(([qId, s]) => (
                       <div key={qId} className="flex justify-between text-xs text-gray-500">
-                        <span className="truncate mr-2">{qId.slice(0, 8)}...</span>
+                        <span className="truncate mr-2">{s.question_text ?? qId.slice(0, 8)}</span>
                         <span>{s.mean != null ? s.mean.toFixed(2) : 'N/A'} ({s.count} responses)</span>
                       </div>
                     ))}

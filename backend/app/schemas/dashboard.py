@@ -20,6 +20,7 @@ class DashboardResponse(BaseModel):
 
 class CommentEntry(BaseModel):
     question_id: str
+    question_text: str = ""
     text: str
     submission_id: str
     withheld: bool

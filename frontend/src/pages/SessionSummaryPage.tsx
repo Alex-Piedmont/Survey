@@ -5,10 +5,10 @@ import { api, fetchRaw } from '../api/client';
 interface TeamScore {
   team_id: string;
   team_name: string;
-  scores: Record<string, { mean: number; median: number; std_dev: number; count: number; histogram: Record<string, number> }>;
+  scores: Record<string, { mean: number; median: number; std_dev: number; count: number; histogram: Record<string, number>; question_text?: string }>;
 }
 
-interface CommentEntry { question_id: string; text: string; submission_id: string; withheld: boolean }
+interface CommentEntry { question_id: string; question_text?: string; text: string; submission_id: string; withheld: boolean }
 interface TeamComments { team_id: string; team_name: string; comments: CommentEntry[] }
 interface ParticipationEntry { email: string; audience_submissions: Record<string, boolean>; peer_submitted: boolean; is_presenter: boolean }
 interface PresentationGrade { id: string; session_id: string; team_id: string; grade: string; comments: string | null; graded_by: string }
@@ -144,7 +144,7 @@ export function SessionSummaryPage() {
                     <tbody>
                       {Object.entries(t.scores).map(([qId, s]) => (
                         <tr key={qId} className="border-b last:border-0">
-                          <td className="py-2 pr-4 text-gray-600">{qId.slice(0, 8)}...</td>
+                          <td className="py-2 pr-4 text-gray-600">{s.question_text ?? qId.slice(0, 8)}</td>
                           <td className="py-2 pr-4 font-medium">{s.mean?.toFixed(2) ?? 'N/A'}</td>
                           <td className="py-2 pr-4">{s.median?.toFixed(1) ?? 'N/A'}</td>
                           <td className="py-2 pr-4">{s.std_dev?.toFixed(2) ?? 'N/A'}</td>
@@ -165,34 +165,54 @@ export function SessionSummaryPage() {
       {/* Comments */}
       {tab === 'comments' && (
         <div className="space-y-4">
-          {summary.team_comments.map((t) => (
-            <div key={t.team_id} className="bg-white rounded-lg border p-4">
-              <h3 className="font-medium text-gray-900 mb-3">{t.team_name}</h3>
-              {t.comments.length > 0 ? (
-                <div className="space-y-2">
-                  {t.comments.map((c) => (
-                    <div key={c.submission_id} className={`flex items-start justify-between p-3 rounded-lg ${c.withheld ? 'bg-red-50' : 'bg-gray-50'}`}>
-                      <p className={`text-sm flex-1 ${c.withheld ? 'text-red-400 line-through' : 'text-gray-700'}`}>
-                        {c.text}
-                      </p>
-                      <button
-                        onClick={() => toggleWithhold(c.submission_id)}
-                        className={`ml-3 text-xs font-medium px-2 py-1 rounded ${
-                          c.withheld
-                            ? 'text-green-600 hover:bg-green-50'
-                            : 'text-red-600 hover:bg-red-50'
-                        }`}
-                      >
-                        {c.withheld ? 'Restore' : 'Withhold'}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-sm text-gray-400">No comments</div>
-              )}
-            </div>
-          ))}
+          {summary.team_comments.map((t) => {
+            // Group comments by question
+            const byQuestion: Record<string, { question_text: string; comments: CommentEntry[] }> = {};
+            for (const c of t.comments) {
+              const key = c.question_id;
+              if (!byQuestion[key]) {
+                byQuestion[key] = { question_text: c.question_text || key.slice(0, 8), comments: [] };
+              }
+              byQuestion[key].comments.push(c);
+            }
+            const questionGroups = Object.entries(byQuestion);
+
+            return (
+              <div key={t.team_id} className="bg-white rounded-lg border p-4">
+                <h3 className="font-medium text-gray-900 mb-3">{t.team_name}</h3>
+                {questionGroups.length > 0 ? (
+                  <div className="space-y-4">
+                    {questionGroups.map(([qId, group]) => (
+                      <div key={qId}>
+                        <h4 className="text-sm font-medium text-gray-600 mb-2">{group.question_text}</h4>
+                        <div className="space-y-2">
+                          {group.comments.map((c) => (
+                            <div key={c.submission_id} className={`flex items-start justify-between p-3 rounded-lg ${c.withheld ? 'bg-red-50' : 'bg-gray-50'}`}>
+                              <p className={`text-sm flex-1 ${c.withheld ? 'text-red-400 line-through' : 'text-gray-700'}`}>
+                                {c.text}
+                              </p>
+                              <button
+                                onClick={() => toggleWithhold(c.submission_id)}
+                                className={`ml-3 text-xs font-medium px-2 py-1 rounded ${
+                                  c.withheld
+                                    ? 'text-green-600 hover:bg-green-50'
+                                    : 'text-red-600 hover:bg-red-50'
+                                }`}
+                              >
+                                {c.withheld ? 'Restore' : 'Withhold'}
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-400">No comments</div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 

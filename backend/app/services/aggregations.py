@@ -156,7 +156,9 @@ async def aggregate_team_scores(
     for tid, questions in team_scores.items():
         result[tid] = {}
         for qid, values in questions.items():
-            result[tid][qid] = compute_likert_stats(values)
+            stats = compute_likert_stats(values)
+            stats["question_text"] = likert_questions[qid].question_text
+            result[tid][qid] = stats
 
     return result
 
@@ -176,7 +178,7 @@ async def collect_free_text_comments(
             Question.is_active == True,
         )
     )
-    text_questions = {q.id for q in template.scalars().all()}
+    text_questions = {q.id: q for q in template.scalars().all()}
 
     if not text_questions:
         return {}
@@ -192,6 +194,7 @@ async def collect_free_text_comments(
             if qid in text_questions and isinstance(value, str) and value.strip():
                 comments[tid].append({
                     "question_id": qid,
+                    "question_text": text_questions[qid].question_text,
                     "text": value,
                     "submission_id": sub.id,
                     "withheld": sub.withheld,
