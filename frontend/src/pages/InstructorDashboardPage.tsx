@@ -129,8 +129,9 @@ export function InstructorDashboardPage() {
           <h2 className="text-lg font-bold text-gray-900 mb-3">Team Averages</h2>
           {dashboard.team_averages.map((t) => {
             const entries = Object.entries(t.scores);
-            const overallMean = entries.length > 0
-              ? (entries.reduce((sum, [, s]) => sum + s.mean, 0) / entries.length).toFixed(2)
+            const validEntries = entries.filter(([, s]) => s.mean != null);
+            const overallMean = validEntries.length > 0
+              ? (validEntries.reduce((sum, [, s]) => sum + s.mean, 0) / validEntries.length).toFixed(2)
               : 'N/A';
             return (
               <div key={t.team_id} className="bg-white rounded-lg border p-4 mb-3">
@@ -143,7 +144,7 @@ export function InstructorDashboardPage() {
                     {entries.map(([qId, s]) => (
                       <div key={qId} className="flex justify-between text-xs text-gray-500">
                         <span className="truncate mr-2">{qId.slice(0, 8)}...</span>
-                        <span>{s.mean.toFixed(2)} ({s.count} responses)</span>
+                        <span>{s.mean != null ? s.mean.toFixed(2) : 'N/A'} ({s.count} responses)</span>
                       </div>
                     ))}
                   </div>

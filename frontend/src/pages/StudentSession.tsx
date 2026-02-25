@@ -54,6 +54,7 @@ export function StudentSession() {
   const [responses, setResponses] = useState<Record<string, Record<string, any>>>({});
   const [savedPages, setSavedPages] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [loadingSubmissions, setLoadingSubmissions] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [finished, setFinished] = useState(false);
@@ -100,6 +101,7 @@ export function StudentSession() {
     }
 
     setTargets(t);
+    if (t.length > 0) setLoadingSubmissions(true);
 
     // Initialize responses for each target
     const init: Record<string, Record<string, any>> = {};
@@ -112,6 +114,7 @@ export function StudentSession() {
   // Load existing submissions
   useEffect(() => {
     if (!sessionId || !isAuthenticated || targets.length === 0) return;
+    setLoadingSubmissions(true);
     api.get<any[]>(`/s/${sessionId}/submissions`)
       .then((subs) => {
         const saved = new Set<number>();
@@ -128,7 +131,8 @@ export function StudentSession() {
         }
         setSavedPages(saved);
       })
-      .catch(() => {}); // Silently fail — user might not have prior submissions
+      .catch(() => {}) // Silently fail — user might not have prior submissions
+      .finally(() => setLoadingSubmissions(false));
   }, [sessionId, isAuthenticated, targets]);
 
   const questionsForTarget = (target: FeedbackTarget): Question[] => {
@@ -209,7 +213,7 @@ export function StudentSession() {
     }
   };
 
-  if (loading) {
+  if (loading || loadingSubmissions) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-gray-500">Loading session...</div>

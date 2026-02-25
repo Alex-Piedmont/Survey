@@ -145,9 +145,9 @@ export function SessionSummaryPage() {
                       {Object.entries(t.scores).map(([qId, s]) => (
                         <tr key={qId} className="border-b last:border-0">
                           <td className="py-2 pr-4 text-gray-600">{qId.slice(0, 8)}...</td>
-                          <td className="py-2 pr-4 font-medium">{s.mean.toFixed(2)}</td>
-                          <td className="py-2 pr-4">{s.median.toFixed(1)}</td>
-                          <td className="py-2 pr-4">{s.std_dev.toFixed(2)}</td>
+                          <td className="py-2 pr-4 font-medium">{s.mean?.toFixed(2) ?? 'N/A'}</td>
+                          <td className="py-2 pr-4">{s.median?.toFixed(1) ?? 'N/A'}</td>
+                          <td className="py-2 pr-4">{s.std_dev?.toFixed(2) ?? 'N/A'}</td>
                           <td className="py-2">{s.count}</td>
                         </tr>
                       ))}
