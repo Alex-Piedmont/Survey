@@ -3,9 +3,35 @@
  * Calls the backend directly to seed data before browser tests run.
  */
 
-const API = (process.env.DEPLOYED_API_URL || 'http://localhost:8001') + '/api/v1';
+export const API = (process.env.DEPLOYED_API_URL || 'http://localhost:8001') + '/api/v1';
 
-async function apiPost(path: string, body: unknown, token?: string) {
+export async function apiDelete(path: string, token?: string) {
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(`${API}${path}`, { method: 'DELETE', headers });
+  if (!res.ok && res.status !== 204) {
+    const text = await res.text();
+    throw new Error(`DELETE ${path} → ${res.status}: ${text}`);
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+export async function apiPatch(path: string, body: unknown, token?: string) {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(`${API}${path}`, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`PATCH ${path} → ${res.status}: ${text}`);
+  }
+  return res.json();
+}
+
+export async function apiPost(path: string, body: unknown, token?: string) {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
   const res = await fetch(`${API}${path}`, {
@@ -20,7 +46,7 @@ async function apiPost(path: string, body: unknown, token?: string) {
   return res.json();
 }
 
-async function apiGet(path: string, token?: string) {
+export async function apiGet(path: string, token?: string) {
   const headers: Record<string, string> = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
   const res = await fetch(`${API}${path}`, { headers });
@@ -52,7 +78,15 @@ export interface TestData {
  * Returns all IDs needed for browser tests.
  */
 export async function seedTestData(): Promise<TestData> {
-  // Instructor auth
+  // Admin grants instructor privileges first (required since admin system)
+  const adminToken = await authenticate('alex@aptuslearning.ai');
+  try {
+    await apiPost('/admin/instructors', { email: 'e2e-instructor@test.com' }, adminToken);
+  } catch {
+    // 409 = already an instructor, that's fine
+  }
+
+  // Instructor auth (re-authenticate to get fresh token with is_instructor claim)
   const instructorToken = await authenticate('e2e-instructor@test.com');
 
   // Create course with unique name to avoid stale-data collisions

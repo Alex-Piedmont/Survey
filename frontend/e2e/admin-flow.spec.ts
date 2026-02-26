@@ -14,6 +14,10 @@ const NEW_INSTRUCTOR_EMAIL = 'e2e-new-instructor@test.com';
 const TA_EMAIL = 'e2e-admin-ta@test.com';
 const REGULAR_EMAIL = 'e2e-regular-user@test.com';
 
+// Unique course name per test run to avoid strict mode violations
+const RUN_ID = Date.now().toString(36);
+const ADMIN_COURSE_NAME = `Admin E2E ${RUN_ID}`;
+
 // ─── Shared state ───
 let adminToken: string;
 let _mainData: TestData | null = null;
@@ -46,8 +50,7 @@ async function login(page: Page, email: string, redirectTo?: string) {
 async function findInstructorRow(page: Page, email: string) {
   // Wait for loading to finish
   await expect(page.getByText('Loading...')).not.toBeVisible({ timeout: 15000 });
-  // Each instructor row is a div with class containing p-4 and flex
-  // Find the row by looking for text then going up to the row-level div
+  // Each instructor row is a direct child of the divide-y container
   const row = page.locator('.divide-y > div').filter({ hasText: email });
   await expect(row).toBeVisible();
   return row;
@@ -75,7 +78,6 @@ test.describe('Admin E2E Flow', () => {
   });
 
   test('non-admin does NOT see Admin link', async ({ page }) => {
-    // Authenticate a regular user first so they exist
     await authenticate(REGULAR_EMAIL);
     await login(page, REGULAR_EMAIL, '/instructor');
     await expect(page.getByRole('link', { name: 'Admin' })).not.toBeVisible();
@@ -90,13 +92,14 @@ test.describe('Admin E2E Flow', () => {
 
   test('admin dashboard shows stats cards', async ({ page }) => {
     await login(page, ADMIN_EMAIL, '/admin');
-    const main = page.getByRole('main');
-    await expect(main.getByText('Users')).toBeVisible();
-    await expect(main.getByText('Instructors')).toBeVisible();
-    await expect(main.getByText('Admins')).toBeVisible();
-    await expect(main.getByText('Courses')).toBeVisible();
-    await expect(main.getByText('Active Sessions')).toBeVisible();
-    await expect(main.getByText('Submissions')).toBeVisible();
+    // Use the grid container for stat cards to avoid matching nav links
+    const statsGrid = page.locator('.grid');
+    await expect(statsGrid.getByText('Users')).toBeVisible();
+    await expect(statsGrid.getByText('Instructors')).toBeVisible();
+    await expect(statsGrid.getByText('Admins')).toBeVisible();
+    await expect(statsGrid.getByText('Courses')).toBeVisible();
+    await expect(statsGrid.getByText('Active Sessions')).toBeVisible();
+    await expect(statsGrid.getByText('Submissions')).toBeVisible();
   });
 
   test('admin dashboard shows recent courses', async ({ page }) => {
@@ -111,7 +114,6 @@ test.describe('Admin E2E Flow', () => {
   test('admin navigates to instructors page', async ({ page }) => {
     await login(page, ADMIN_EMAIL, '/admin/instructors');
     await expect(page.getByRole('heading', { name: 'Instructors' })).toBeVisible();
-    // Wait for data to load, then check seeded instructor
     await expect(page.getByText('Loading...')).not.toBeVisible({ timeout: 15000 });
     await expect(page.getByText('e2e-instructor@test.com')).toBeVisible();
   });
@@ -123,7 +125,6 @@ test.describe('Admin E2E Flow', () => {
     await page.getByPlaceholder('Email address').fill(NEW_INSTRUCTOR_EMAIL);
     await page.getByRole('button', { name: '+ Add Instructor' }).click();
 
-    // New instructor should appear in the list
     await expect(page.getByText(NEW_INSTRUCTOR_EMAIL)).toBeVisible({ timeout: 10000 });
   });
 
@@ -141,27 +142,25 @@ test.describe('Admin E2E Flow', () => {
     await login(page, NEW_INSTRUCTOR_EMAIL, '/instructor');
 
     await page.getByRole('button', { name: 'New Course' }).click();
-    await page.getByPlaceholder('Course name (e.g. MGMT 481)').fill('Admin E2E Course');
+    await page.getByPlaceholder('Course name (e.g. MGMT 481)').fill(ADMIN_COURSE_NAME);
     await page.getByPlaceholder('Term (e.g. Spring 2026)').fill('Fall 2026');
     await page.getByRole('button', { name: 'Create' }).click();
 
-    await expect(page.getByText('Admin E2E Course')).toBeVisible({ timeout: 10000 });
+    // Use unique name to avoid strict mode violations from previous runs
+    await expect(page.getByText(ADMIN_COURSE_NAME)).toBeVisible({ timeout: 10000 });
   });
 
   test('admin revokes instructor privileges', async ({ page }) => {
     await login(page, ADMIN_EMAIL, '/admin/instructors');
 
-    // Find the row for the new instructor and click Revoke
     const row = await findInstructorRow(page, NEW_INSTRUCTOR_EMAIL);
-    page.on('dialog', (dialog) => dialog.accept()); // Accept confirmation
+    page.on('dialog', (dialog) => dialog.accept());
     await row.getByRole('button', { name: 'Revoke' }).click();
 
-    // Instructor should disappear from the list
     await expect(page.getByText(NEW_INSTRUCTOR_EMAIL)).not.toBeVisible({ timeout: 10000 });
   });
 
   test('revoked instructor cannot create a course', async ({ page }) => {
-    // Re-authenticate to get fresh token without instructor flag
     await login(page, NEW_INSTRUCTOR_EMAIL, '/instructor');
 
     await page.getByRole('button', { name: 'New Course' }).click();
@@ -180,7 +179,6 @@ test.describe('Admin E2E Flow', () => {
   test('admin opens TA management modal', async ({ page }) => {
     await login(page, ADMIN_EMAIL, '/admin/instructors');
 
-    // Open TA modal for the e2e instructor
     const row = await findInstructorRow(page, 'e2e-instructor@test.com');
     await row.getByRole('button', { name: 'Manage TAs' }).click();
 
@@ -190,19 +188,17 @@ test.describe('Admin E2E Flow', () => {
   test('admin assigns a TA to instructor', async ({ page }) => {
     await login(page, ADMIN_EMAIL, '/admin/instructors');
 
-    // Open TA modal
     const row = await findInstructorRow(page, 'e2e-instructor@test.com');
     await row.getByRole('button', { name: 'Manage TAs' }).click();
     await expect(page.getByText('TAs for e2e-instructor@test.com')).toBeVisible();
-    // Wait for TA list to finish loading
     await expect(page.getByText('Loading...')).not.toBeVisible({ timeout: 15000 });
 
-    // Add TA
-    await page.getByPlaceholder('TA email').fill(TA_EMAIL);
-    await page.getByRole('button', { name: 'Add' }).click();
+    // Scope Add button to the modal to avoid matching "+ Add Instructor"
+    const modal = page.locator('.fixed');
+    await modal.getByPlaceholder('TA email').fill(TA_EMAIL);
+    await modal.getByRole('button', { name: 'Add' }).click();
 
-    // TA should appear in modal list
-    await expect(page.getByText(TA_EMAIL)).toBeVisible({ timeout: 10000 });
+    await expect(modal.getByText(TA_EMAIL)).toBeVisible({ timeout: 10000 });
   });
 
   test('duplicate TA assignment shows error', async ({ page }) => {
@@ -214,10 +210,11 @@ test.describe('Admin E2E Flow', () => {
     await expect(page.getByText('Loading...')).not.toBeVisible({ timeout: 15000 });
     await expect(page.getByText(TA_EMAIL)).toBeVisible();
 
-    await page.getByPlaceholder('TA email').fill(TA_EMAIL);
-    await page.getByRole('button', { name: 'Add' }).click();
+    const modal = page.locator('.fixed');
+    await modal.getByPlaceholder('TA email').fill(TA_EMAIL);
+    await modal.getByRole('button', { name: 'Add' }).click();
 
-    await expect(page.getByText(/already assigned/i)).toBeVisible({ timeout: 10000 });
+    await expect(modal.getByText(/already assigned/i)).toBeVisible({ timeout: 10000 });
   });
 
   test('admin removes a TA from instructor', async ({ page }) => {
@@ -230,9 +227,9 @@ test.describe('Admin E2E Flow', () => {
     await expect(page.getByText(TA_EMAIL)).toBeVisible();
 
     page.on('dialog', (dialog) => dialog.accept());
-    await page.getByRole('button', { name: 'Remove' }).click();
+    const modal = page.locator('.fixed');
+    await modal.getByRole('button', { name: 'Remove' }).click();
 
-    // TA should be removed
     await expect(page.getByText(TA_EMAIL)).not.toBeVisible({ timeout: 10000 });
   });
 
@@ -242,7 +239,6 @@ test.describe('Admin E2E Flow', () => {
     const data = await getMainData();
     await login(page, ADMIN_EMAIL, '/admin/courses');
     await expect(page.getByText('All Courses')).toBeVisible();
-    // Should see courses created by any instructor
     await expect(page.getByText(data.courseName)).toBeVisible();
   });
 
@@ -250,7 +246,6 @@ test.describe('Admin E2E Flow', () => {
     const data = await getMainData();
     await login(page, ADMIN_EMAIL, '/admin/courses');
 
-    // Click the course link (goes to instructor view)
     await page.getByRole('link', { name: data.courseName }).click();
     await expect(page).toHaveURL(/\/instructor\/courses\//);
     await expect(page.getByText('E2E Section')).toBeVisible();
@@ -261,7 +256,6 @@ test.describe('Admin E2E Flow', () => {
   test('admin can view any course without enrollment', async ({ page }) => {
     const data = await getMainData();
     await login(page, ADMIN_EMAIL, `/instructor/courses/${data.courseId}`);
-    // Course detail page shows sections - check for the section name
     await expect(page.getByText('E2E Section')).toBeVisible();
     await expect(page.getByText('Sections')).toBeVisible();
   });
