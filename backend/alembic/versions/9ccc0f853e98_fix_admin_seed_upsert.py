@@ -22,8 +22,8 @@ def upgrade() -> None:
     """Ensure alex@aptuslearning.ai has admin + instructor flags."""
     op.execute(
         """
-        INSERT INTO users (email, is_admin, is_instructor)
-        VALUES ('alex@aptuslearning.ai', true, true)
+        INSERT INTO users (email, is_admin, is_instructor, created_at)
+        VALUES ('alex@aptuslearning.ai', true, true, now())
         ON CONFLICT (email) DO UPDATE
             SET is_admin = true, is_instructor = true
         """
