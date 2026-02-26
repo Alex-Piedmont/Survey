@@ -16,6 +16,7 @@ export function CoursesPage() {
   const [name, setName] = useState('');
   const [term, setTerm] = useState('');
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
 
   const load = () => {
     api.get<Course[]>('/courses')
@@ -29,13 +30,15 @@ export function CoursesPage() {
   const create = async () => {
     if (!name || !term) return;
     setCreating(true);
+    setCreateError('');
     try {
       await api.post('/courses', { name, term });
       setName('');
       setTerm('');
       setShowCreate(false);
       load();
-    } catch {
+    } catch (err: any) {
+      setCreateError(err.message || 'Failed to create course');
     } finally {
       setCreating(false);
     }
@@ -86,6 +89,7 @@ export function CoursesPage() {
               Cancel
             </button>
           </div>
+          {createError && <p className="text-sm text-red-600 mt-2">{createError}</p>}
         </div>
       )}
 
