@@ -44,8 +44,15 @@ export function InstructorDashboardPage() {
   // WebSocket for live updates
   useEffect(() => {
     if (!sessionId) return;
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${protocol}//${window.location.host}/ws/${sessionId}`);
+    const apiUrl = import.meta.env.VITE_API_URL || '';
+    let wsUrl: string;
+    if (apiUrl) {
+      wsUrl = apiUrl.replace(/^http/, 'ws') + `/ws/sessions/${sessionId}`;
+    } else {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      wsUrl = `${protocol}//${window.location.host}/ws/sessions/${sessionId}`;
+    }
+    const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onmessage = () => {
