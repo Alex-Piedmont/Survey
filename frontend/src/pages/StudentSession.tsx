@@ -105,7 +105,7 @@ export function StudentSession() {
 
     // Initialize responses for each target
     const init: Record<string, Record<string, any>> = {};
-    t.forEach((target, i) => {
+    t.forEach((_target, i) => {
       init[i] = {};
     });
     setResponses(init);
