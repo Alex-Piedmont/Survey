@@ -3,7 +3,7 @@
  * Calls the backend directly to seed data before browser tests run.
  */
 
-const API = 'http://localhost:8001/api/v1';
+const API = (process.env.DEPLOYED_API_URL || 'http://localhost:8001') + '/api/v1';
 
 async function apiPost(path: string, body: unknown, token?: string) {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
