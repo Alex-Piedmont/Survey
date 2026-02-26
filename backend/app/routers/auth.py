@@ -73,7 +73,9 @@ async def google_auth(body: GoogleAuthRequest, db: AsyncSession = Depends(get_db
         display_name=userinfo.get("name"),
         google_id=userinfo.get("id"),
     )
-    token = create_access_token(user.email)
+    token = create_access_token(
+        user.email, is_admin=user.is_admin, is_instructor=user.is_instructor
+    )
     return TokenResponse(access_token=token, user=UserResponse.model_validate(user))
 
 
@@ -119,5 +121,7 @@ async def verify_otp_endpoint(body: OTPVerify, db: AsyncSession = Depends(get_db
     user = await _upsert_user(db, email=body.email)
     await db.commit()
 
-    token = create_access_token(user.email)
+    token = create_access_token(
+        user.email, is_admin=user.is_admin, is_instructor=user.is_instructor
+    )
     return TokenResponse(access_token=token, user=UserResponse.model_validate(user))

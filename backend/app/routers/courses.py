@@ -6,6 +6,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.course import Course
 from app.models.enrollment import Enrollment
+from app.models.instructor_ta import InstructorTA
 from app.models.section import Section
 from app.models.user import User
 from app.schemas.course import CourseCreate, CourseResponse
@@ -21,6 +22,11 @@ async def create_course(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a course. The creator is auto-enrolled as instructor (FR-4)."""
+    if not current_user.is_instructor:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Instructor privileges required",
+        )
     course = Course(name=body.name, term=body.term, created_by=current_user.email)
     db.add(course)
     await db.flush()
@@ -46,14 +52,17 @@ async def list_courses(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """List courses the authenticated user is enrolled in."""
-    result = await db.execute(
-        select(Course)
-        .join(Section, Section.course_id == Course.id)
-        .join(Enrollment, Enrollment.section_id == Section.id)
-        .where(Enrollment.student_email == current_user.email)
-        .distinct()
-    )
+    """List courses the authenticated user is enrolled in. Admins see all."""
+    if current_user.is_admin:
+        result = await db.execute(select(Course))
+    else:
+        result = await db.execute(
+            select(Course)
+            .join(Section, Section.course_id == Course.id)
+            .join(Enrollment, Enrollment.section_id == Section.id)
+            .where(Enrollment.student_email == current_user.email)
+            .distinct()
+        )
     return result.scalars().all()
 
 
@@ -63,22 +72,22 @@ async def get_course(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get course details. User must be enrolled in the course."""
-    # Verify user has access to this course
-    access = await db.execute(
-        select(Enrollment)
-        .join(Section, Enrollment.section_id == Section.id)
-        .where(
-            Section.course_id == course_id,
-            Enrollment.student_email == current_user.email,
+    """Get course details. User must be enrolled in the course. Admins bypass."""
+    if not current_user.is_admin:
+        access = await db.execute(
+            select(Enrollment)
+            .join(Section, Enrollment.section_id == Section.id)
+            .where(
+                Section.course_id == course_id,
+                Enrollment.student_email == current_user.email,
+            )
+            .limit(1)
         )
-        .limit(1)
-    )
-    if access.scalar_one_or_none() is None:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have access to this course",
-        )
+        if access.scalar_one_or_none() is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have access to this course",
+            )
 
     result = await db.execute(select(Course).where(Course.id == course_id))
     course = result.scalar_one_or_none()
@@ -99,6 +108,11 @@ async def create_section(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a section under a course. Instructor only."""
+    if not current_user.is_instructor:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Instructor privileges required",
+        )
     # Verify instructor role
     access = await db.execute(
         select(Enrollment)
@@ -140,6 +154,16 @@ async def create_section(
         role="instructor",
     )
     db.add(enrollment)
+
+    # Auto-enroll instructor-level TAs (FR-7)
+    ta_result = await db.execute(
+        select(InstructorTA.ta_email).where(
+            InstructorTA.instructor_email == current_user.email
+        )
+    )
+    for (ta_email,) in ta_result.all():
+        db.add(Enrollment(section_id=section.id, student_email=ta_email, role="ta"))
+
     await db.commit()
     await db.refresh(section)
     return section
@@ -151,21 +175,22 @@ async def list_sections(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """List sections for a course. User must be enrolled."""
-    access = await db.execute(
-        select(Enrollment)
-        .join(Section, Enrollment.section_id == Section.id)
-        .where(
-            Section.course_id == course_id,
-            Enrollment.student_email == current_user.email,
+    """List sections for a course. User must be enrolled. Admins bypass."""
+    if not current_user.is_admin:
+        access = await db.execute(
+            select(Enrollment)
+            .join(Section, Enrollment.section_id == Section.id)
+            .where(
+                Section.course_id == course_id,
+                Enrollment.student_email == current_user.email,
+            )
+            .limit(1)
         )
-        .limit(1)
-    )
-    if access.scalar_one_or_none() is None:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have access to this course",
-        )
+        if access.scalar_one_or_none() is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have access to this course",
+            )
 
     result = await db.execute(select(Section).where(Section.course_id == course_id))
     return result.scalars().all()

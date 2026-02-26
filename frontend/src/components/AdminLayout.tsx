@@ -2,28 +2,34 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const navItems = [
-  { path: '/instructor', label: 'Courses' },
-  { path: '/me/submissions', label: 'My Submissions' },
+  { path: '/admin', label: 'Dashboard', exact: true },
+  { path: '/admin/instructors', label: 'Instructors' },
+  { path: '/admin/courses', label: 'Courses' },
 ];
 
-export function InstructorLayout() {
-  const { email, isAdmin, logout } = useAuth();
+export function AdminLayout() {
+  const { email, logout } = useAuth();
   const location = useLocation();
+
+  const isActive = (item: typeof navItems[0]) =>
+    item.exact
+      ? location.pathname === item.path
+      : location.pathname.startsWith(item.path);
 
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white border-b">
         <div className="max-w-6xl mx-auto px-4 flex items-center justify-between h-14">
           <div className="flex items-center gap-6">
-            <Link to="/instructor" className="text-lg font-bold text-gray-900">
-              Classroom Survey
+            <Link to="/admin" className="text-lg font-bold text-gray-900">
+              Admin
             </Link>
             {navItems.map((item) => (
               <Link
                 key={item.path}
                 to={item.path}
                 className={`text-sm font-medium ${
-                  location.pathname.startsWith(item.path)
+                  isActive(item)
                     ? 'text-blue-600'
                     : 'text-gray-500 hover:text-gray-900'
                 }`}
@@ -31,16 +37,14 @@ export function InstructorLayout() {
                 {item.label}
               </Link>
             ))}
+            <Link
+              to="/instructor"
+              className="text-sm font-medium text-gray-500 hover:text-gray-900"
+            >
+              Instructor View
+            </Link>
           </div>
           <div className="flex items-center gap-4">
-            {isAdmin && (
-              <Link
-                to="/admin"
-                className="text-sm font-medium text-purple-600 hover:text-purple-800"
-              >
-                Admin
-              </Link>
-            )}
             <span className="text-sm text-gray-500">{email}</span>
             <button
               onClick={logout}

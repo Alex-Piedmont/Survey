@@ -7,8 +7,18 @@ from app.core.security import create_access_token, verify_access_token
 class TestJWT:
     def test_create_and_verify_token(self):
         token = create_access_token("test@example.com")
-        email = verify_access_token(token)
-        assert email == "test@example.com"
+        payload = verify_access_token(token)
+        assert payload is not None
+        assert payload["sub"] == "test@example.com"
+        assert payload["is_admin"] is False
+        assert payload["is_instructor"] is False
+
+    def test_create_token_with_admin_flags(self):
+        token = create_access_token("admin@example.com", is_admin=True, is_instructor=True)
+        payload = verify_access_token(token)
+        assert payload is not None
+        assert payload["is_admin"] is True
+        assert payload["is_instructor"] is True
 
     def test_invalid_token_returns_none(self):
         assert verify_access_token("garbage.token.here") is None

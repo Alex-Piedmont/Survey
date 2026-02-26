@@ -15,12 +15,13 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    email = verify_access_token(credentials.credentials)
-    if email is None:
+    payload = verify_access_token(credentials.credentials)
+    if payload is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
         )
+    email = payload["sub"]
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
     if user is None:
@@ -31,15 +32,30 @@ async def get_current_user(
     return user
 
 
+async def require_admin(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin privileges required",
+        )
+    return current_user
+
+
 def require_role(*allowed_roles: str):
     """Dependency factory that checks if the user has one of the allowed roles
-    for a given course. The course_id must be a path parameter."""
+    for a given course. The course_id must be a path parameter.
+    Admins bypass the enrollment check."""
 
     async def check_role(
         course_id: str,
         current_user: User = Depends(get_current_user),
         db: AsyncSession = Depends(get_db),
     ) -> User:
+        if current_user.is_admin:
+            return current_user
+
         from app.models.section import Section
 
         result = await db.execute(

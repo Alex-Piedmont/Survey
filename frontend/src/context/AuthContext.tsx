@@ -3,6 +3,20 @@ import { createContext, useContext, useState, useCallback, type ReactNode } from
 interface AuthState {
   token: string | null;
   email: string | null;
+  isAdmin: boolean;
+  isInstructor: boolean;
+}
+
+function parseJwtClaims(token: string): { isAdmin: boolean; isInstructor: boolean } {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return {
+      isAdmin: !!payload.is_admin,
+      isInstructor: !!payload.is_instructor,
+    };
+  } catch {
+    return { isAdmin: false, isInstructor: false };
+  }
 }
 
 interface AuthContextType extends AuthState {
@@ -14,21 +28,27 @@ interface AuthContextType extends AuthState {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [auth, setAuth] = useState<AuthState>(() => ({
-    token: localStorage.getItem('token'),
-    email: localStorage.getItem('email'),
-  }));
+  const [auth, setAuth] = useState<AuthState>(() => {
+    const token = localStorage.getItem('token');
+    const claims = token ? parseJwtClaims(token) : { isAdmin: false, isInstructor: false };
+    return {
+      token,
+      email: localStorage.getItem('email'),
+      ...claims,
+    };
+  });
 
   const login = useCallback((token: string, email: string) => {
     localStorage.setItem('token', token);
     localStorage.setItem('email', email);
-    setAuth({ token, email });
+    const claims = parseJwtClaims(token);
+    setAuth({ token, email, ...claims });
   }, []);
 
   const logout = useCallback(() => {
     localStorage.removeItem('token');
     localStorage.removeItem('email');
-    setAuth({ token: null, email: null });
+    setAuth({ token: null, email: null, isAdmin: false, isInstructor: false });
   }, []);
 
   return (

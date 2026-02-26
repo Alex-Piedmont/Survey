@@ -45,7 +45,7 @@ async def client():
 
 @pytest.fixture
 async def instructor_user(db: AsyncSession):
-    user = User(email="instructor@university.edu", display_name="Dr. Smith")
+    user = User(email="instructor@university.edu", display_name="Dr. Smith", is_instructor=True)
     db.add(user)
     await db.commit()
     return user
@@ -53,7 +53,7 @@ async def instructor_user(db: AsyncSession):
 
 @pytest.fixture
 def instructor_token(instructor_user: User):
-    return create_access_token(instructor_user.email)
+    return create_access_token(instructor_user.email, is_instructor=True)
 
 
 @pytest.fixture

@@ -1,5 +1,6 @@
 from app.models.course import Course
 from app.models.enrollment import Enrollment
+from app.models.instructor_ta import InstructorTA
 from app.models.presentation_grade import PresentationGrade
 from app.models.section import Section
 from app.models.session import Session, SessionTeam
@@ -13,6 +14,7 @@ __all__ = [
     "Course",
     "Section",
     "Enrollment",
+    "InstructorTA",
     "PresentationType",
     "SurveyTemplate",
     "Question",

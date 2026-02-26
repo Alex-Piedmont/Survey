@@ -96,6 +96,12 @@ async def create_session(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a session with template snapshot and QR code."""
+    if not current_user.is_instructor:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Instructor privileges required",
+        )
+
     # Verify instructor for this section's course
     section = await db.execute(select(Section).where(Section.id == body.section_id))
     section = section.scalar_one_or_none()
@@ -290,8 +296,9 @@ async def get_student_session(
     student_role = "audience"
     student_team_id = None
     if credentials:
-        email = verify_access_token(credentials.credentials)
-        if email:
+        payload = verify_access_token(credentials.credentials)
+        if payload:
+            email = payload["sub"]
             for tid, members in team_members.items():
                 if email in members:
                     student_role = "presenter"

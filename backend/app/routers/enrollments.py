@@ -95,28 +95,28 @@ async def get_roster(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get section roster. Instructor or TA only."""
+    """Get section roster. Instructor or TA only. Admins bypass."""
     result = await db.execute(select(Section).where(Section.id == section_id))
     section = result.scalar_one_or_none()
     if section is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Section not found")
 
-    # Check instructor or TA role
-    access = await db.execute(
-        select(Enrollment)
-        .join(Section, Enrollment.section_id == Section.id)
-        .where(
-            Section.course_id == section.course_id,
-            Enrollment.student_email == current_user.email,
-            Enrollment.role.in_(["instructor", "ta"]),
+    if not current_user.is_admin:
+        access = await db.execute(
+            select(Enrollment)
+            .join(Section, Enrollment.section_id == Section.id)
+            .where(
+                Section.course_id == section.course_id,
+                Enrollment.student_email == current_user.email,
+                Enrollment.role.in_(["instructor", "ta"]),
+            )
+            .limit(1)
         )
-        .limit(1)
-    )
-    if access.scalar_one_or_none() is None:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only instructors and TAs can view the roster",
-        )
+        if access.scalar_one_or_none() is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only instructors and TAs can view the roster",
+            )
 
     enrollments = await db.execute(
         select(Enrollment.student_email, Enrollment.role).where(

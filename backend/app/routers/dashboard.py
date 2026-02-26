@@ -53,8 +53,13 @@ async def _get_session_with_teams(db: AsyncSession, session_id: str) -> Session:
     return session
 
 
-async def _require_instructor(db: AsyncSession, session: Session, email: str):
-    """Verify the user is an instructor for this session's course."""
+async def _require_instructor(
+    db: AsyncSession, session: Session, email: str, *, user: User | None = None
+):
+    """Verify the user is an instructor for this session's course. Admins bypass."""
+    if user and user.is_admin:
+        return
+
     section = await db.execute(select(Section).where(Section.id == session.section_id))
     section = section.scalar_one()
 
@@ -94,7 +99,7 @@ async def get_dashboard(
 ):
     """Live dashboard data: submission progress and per-team averages."""
     session = await _get_session_with_teams(db, session_id)
-    await _require_instructor(db, session, current_user.email)
+    await _require_instructor(db, session, current_user.email, user=current_user)
 
     enrolled_count = await get_enrolled_count(db, session.section_id)
     submitted = await get_submitted_emails(db, session_id)
@@ -135,7 +140,7 @@ async def get_summary(
 ):
     """Full session summary: scores, comments, participation, grades."""
     session = await _get_session_with_teams(db, session_id)
-    await _require_instructor(db, session, current_user.email)
+    await _require_instructor(db, session, current_user.email, user=current_user)
 
     team_ids = [st.team_id for st in session.session_teams]
     team_names = await _get_team_names(db, team_ids)
@@ -212,7 +217,7 @@ async def submit_instructor_feedback(
 ):
     """Instructor submits their own feedback for a presenting team."""
     session = await _get_session_with_teams(db, session_id)
-    await _require_instructor(db, session, current_user.email)
+    await _require_instructor(db, session, current_user.email, user=current_user)
 
     # Verify target team is presenting
     presenting_ids = {st.team_id for st in session.session_teams}
@@ -265,7 +270,7 @@ async def assign_presentation_grade(
 ):
     """Instructor assigns a presentation quality grade to a team."""
     session = await _get_session_with_teams(db, session_id)
-    await _require_instructor(db, session, current_user.email)
+    await _require_instructor(db, session, current_user.email, user=current_user)
 
     presenting_ids = {st.team_id for st in session.session_teams}
     if team_id not in presenting_ids:
@@ -309,7 +314,7 @@ async def withhold_comment(
 ):
     """Toggle withhold status on a submission's comments."""
     session = await _get_session_with_teams(db, session_id)
-    await _require_instructor(db, session, current_user.email)
+    await _require_instructor(db, session, current_user.email, user=current_user)
 
     result = await db.execute(
         select(Submission).where(
@@ -339,8 +344,7 @@ async def list_sessions(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """List all sessions for a section."""
-    # Verify access
+    """List all sessions for a section. Admins bypass enrollment check."""
     section = await db.execute(select(Section).where(Section.id == section_id))
     section_obj = section.scalar_one_or_none()
     if section_obj is None:
@@ -348,17 +352,18 @@ async def list_sessions(
             status_code=status.HTTP_404_NOT_FOUND, detail="Section not found"
         )
 
-    result = await db.execute(
-        select(Enrollment).where(
-            Enrollment.section_id == section_id,
-            Enrollment.student_email == current_user.email,
+    if not current_user.is_admin:
+        result = await db.execute(
+            select(Enrollment).where(
+                Enrollment.section_id == section_id,
+                Enrollment.student_email == current_user.email,
+            )
         )
-    )
-    if result.scalar_one_or_none() is None:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not enrolled in this section",
-        )
+        if result.scalar_one_or_none() is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not enrolled in this section",
+            )
 
     # Get sessions with counts
     sessions = await db.execute(
@@ -407,7 +412,7 @@ async def export_session(
 ):
     """Export session data as CSV or XLSX."""
     session = await _get_session_with_teams(db, session_id)
-    await _require_instructor(db, session, current_user.email)
+    await _require_instructor(db, session, current_user.email, user=current_user)
 
     from app.services.exports import export_session_csv, export_session_xlsx
 
