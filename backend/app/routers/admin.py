@@ -7,8 +7,11 @@ from app.core.deps import require_admin
 from app.models.course import Course
 from app.models.enrollment import Enrollment
 from app.models.instructor_ta import InstructorTA
+from app.models.presentation_grade import PresentationGrade
 from app.models.section import Section
 from app.models.session import Session
+from app.models.submission import Submission
+from app.models.survey import PresentationType, Question, SurveyTemplate
 from app.models.user import User
 from app.schemas.admin import (
     AdminCourseItem,
@@ -388,6 +391,45 @@ async def get_course_detail(
         section_count=section_count,
         student_count=student_count,
     )
+
+
+@router.delete("/courses/{course_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_course(
+    course_id: str,
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a course and all related data (sections, enrollments, sessions, etc.)."""
+    result = await db.execute(select(Course).where(Course.id == course_id))
+    course = result.scalar_one_or_none()
+    if course is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
+
+    # Delete related data in dependency order
+    section_ids_q = select(Section.id).where(Section.course_id == course_id)
+    session_ids_q = select(Session.id).where(Session.section_id.in_(section_ids_q))
+    ptype_ids_q = select(PresentationType.id).where(PresentationType.course_id == course_id)
+    template_ids_q = select(SurveyTemplate.id).where(SurveyTemplate.presentation_type_id.in_(ptype_ids_q))
+
+    # Session children
+    await db.execute(Submission.__table__.delete().where(Submission.session_id.in_(session_ids_q)))
+    await db.execute(PresentationGrade.__table__.delete().where(PresentationGrade.session_id.in_(session_ids_q)))
+    from app.models.session import SessionTeam
+    await db.execute(SessionTeam.__table__.delete().where(SessionTeam.session_id.in_(session_ids_q)))
+    await db.execute(Session.__table__.delete().where(Session.id.in_(session_ids_q)))
+
+    # Section children
+    await db.execute(Enrollment.__table__.delete().where(Enrollment.section_id.in_(section_ids_q)))
+    await db.execute(Section.__table__.delete().where(Section.course_id == course_id))
+
+    # Survey template children
+    await db.execute(Question.__table__.delete().where(Question.template_id.in_(template_ids_q)))
+    await db.execute(SurveyTemplate.__table__.delete().where(SurveyTemplate.presentation_type_id.in_(ptype_ids_q)))
+    await db.execute(PresentationType.__table__.delete().where(PresentationType.course_id == course_id))
+
+    # Course itself
+    await db.execute(Course.__table__.delete().where(Course.id == course_id))
+    await db.commit()
 
 
 @router.post("/users/{email}/reset-password", status_code=status.HTTP_501_NOT_IMPLEMENTED)
