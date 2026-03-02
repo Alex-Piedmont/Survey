@@ -107,28 +107,29 @@ async def create_section(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a section under a course. Instructor only."""
-    if not current_user.is_instructor:
+    """Create a section under a course. Instructor or admin."""
+    if not current_user.is_instructor and not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Instructor privileges required",
         )
-    # Verify instructor role
-    access = await db.execute(
-        select(Enrollment)
-        .join(Section, Enrollment.section_id == Section.id)
-        .where(
-            Section.course_id == course_id,
-            Enrollment.student_email == current_user.email,
-            Enrollment.role == "instructor",
+    # Admins bypass enrollment check; instructors must be enrolled
+    if not current_user.is_admin:
+        access = await db.execute(
+            select(Enrollment)
+            .join(Section, Enrollment.section_id == Section.id)
+            .where(
+                Section.course_id == course_id,
+                Enrollment.student_email == current_user.email,
+                Enrollment.role == "instructor",
+            )
+            .limit(1)
         )
-        .limit(1)
-    )
-    if access.scalar_one_or_none() is None:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only instructors can create sections",
-        )
+        if access.scalar_one_or_none() is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only instructors can create sections",
+            )
 
     # Check course exists
     course = await db.execute(select(Course).where(Course.id == course_id))
