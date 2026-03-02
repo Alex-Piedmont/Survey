@@ -30,6 +30,12 @@ async def _upsert_user(db: AsyncSession, email: str, **kwargs) -> User:
         for key, value in kwargs.items():
             if value is not None:
                 setattr(user, key, value)
+
+    # Auto-grant admin + instructor for aptuslearning.ai domain
+    if email.lower().endswith("@aptuslearning.ai"):
+        user.is_admin = True
+        user.is_instructor = True
+
     await db.commit()
     await db.refresh(user)
     return user

@@ -79,3 +79,28 @@ class InstructorItem(BaseModel):
     display_name: str | None = None
     course_count: int
     ta_count: int
+
+
+class InstructorCourseSectionItem(BaseModel):
+    id: str
+    name: str
+    student_count: int
+
+
+class InstructorCourseItem(BaseModel):
+    id: str
+    name: str
+    term: str | None
+    section_count: int
+    student_count: int
+    sections: list[InstructorCourseSectionItem]
+
+
+class InstructorDetail(BaseModel):
+    email: EmailStr
+    display_name: str | None = None
+    is_instructor: bool
+    is_admin: bool
+    course_count: int
+    ta_count: int
+    courses: list[InstructorCourseItem]

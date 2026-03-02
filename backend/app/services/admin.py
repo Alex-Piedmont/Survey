@@ -154,6 +154,77 @@ async def assign_ta(
     return enrolled_count
 
 
+async def get_instructor_detail(db: AsyncSession, email: str) -> dict:
+    """Get instructor detail with courses and sections."""
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise ValueError("User not found")
+
+    # Courses created by this instructor
+    courses_result = await db.execute(
+        select(Course)
+        .where(Course.created_by == email)
+        .order_by(Course.term.desc(), Course.name.asc())
+    )
+    courses = courses_result.scalars().all()
+
+    course_items = []
+    for c in courses:
+        # Sections with student-only count
+        sections_result = await db.execute(
+            select(
+                Section.id,
+                Section.name,
+                func.count(Enrollment.id).label("student_count"),
+            )
+            .outerjoin(
+                Enrollment,
+                (Enrollment.section_id == Section.id) & (Enrollment.role == "student"),
+            )
+            .where(Section.course_id == c.id)
+            .group_by(Section.id, Section.name)
+            .order_by(Section.name.asc())
+        )
+        sections = sections_result.all()
+
+        section_items = [
+            {"id": s.id, "name": s.name, "student_count": s.student_count}
+            for s in sections
+        ]
+        total_students = sum(s.student_count for s in sections)
+
+        course_items.append(
+            {
+                "id": c.id,
+                "name": c.name,
+                "term": c.term,
+                "section_count": len(section_items),
+                "student_count": total_students,
+                "sections": section_items,
+            }
+        )
+
+    # TA count
+    ta_count = (
+        await db.execute(
+            select(func.count())
+            .select_from(InstructorTA)
+            .where(InstructorTA.instructor_email == email)
+        )
+    ).scalar_one()
+
+    return {
+        "email": user.email,
+        "display_name": user.display_name,
+        "is_instructor": user.is_instructor,
+        "is_admin": user.is_admin,
+        "course_count": len(course_items),
+        "ta_count": ta_count,
+        "courses": course_items,
+    }
+
+
 async def remove_ta(db: AsyncSession, instructor_email: str, ta_email: str) -> None:
     """Remove TA from instructor. Demote to student in instructor's sections."""
     # Delete InstructorTA record

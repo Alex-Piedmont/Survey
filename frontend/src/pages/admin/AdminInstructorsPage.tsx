@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import { TAManagementModal } from '../../components/admin/TAManagementModal';
@@ -75,11 +76,19 @@ export function AdminInstructorsPage() {
           {instructors.map((inst) => (
             <div key={inst.email} className="p-4 flex items-center justify-between">
               <div>
-                <p className="font-medium">
+                <Link
+                  to={`/admin/instructors/${encodeURIComponent(inst.email)}`}
+                  className="font-medium text-blue-600 hover:underline"
+                >
                   {inst.display_name || inst.email}
-                </p>
+                </Link>
                 {inst.display_name && (
-                  <p className="text-sm text-gray-500">{inst.email}</p>
+                  <Link
+                    to={`/admin/instructors/${encodeURIComponent(inst.email)}`}
+                    className="block text-sm text-blue-600 hover:underline"
+                  >
+                    {inst.email}
+                  </Link>
                 )}
                 <p className="text-sm text-gray-500">
                   {inst.course_count} courses · {inst.ta_count} TAs

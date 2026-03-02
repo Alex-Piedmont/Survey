@@ -18,6 +18,7 @@ from app.schemas.admin import (
     DashboardStats,
     InstructorCreate,
     InstructorCreateResponse,
+    InstructorDetail,
     InstructorItem,
     TAAssign,
     TAAssignResponse,
@@ -26,6 +27,7 @@ from app.schemas.admin import (
 from app.services.admin import (
     assign_ta,
     get_dashboard_stats,
+    get_instructor_detail,
     grant_instructor,
     remove_ta,
     revoke_instructor,
@@ -215,6 +217,18 @@ async def delete_instructor(
 ):
     try:
         await revoke_instructor(db, email)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.get("/instructors/{email}/courses", response_model=InstructorDetail)
+async def get_instructor_courses(
+    email: str,
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        return await get_instructor_detail(db, email)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 

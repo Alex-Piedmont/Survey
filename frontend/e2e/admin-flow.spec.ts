@@ -233,6 +233,55 @@ test.describe('Admin E2E Flow', () => {
     await expect(page.getByText(TA_EMAIL)).not.toBeVisible({ timeout: 10000 });
   });
 
+  // ─── Instructor Detail View ───
+
+  test('click instructor name navigates to detail page', async ({ page }) => {
+    await login(page, ADMIN_EMAIL, '/admin/instructors');
+    await expect(page.getByText('Loading...')).not.toBeVisible({ timeout: 15000 });
+
+    await page.getByRole('link', { name: 'e2e-instructor@test.com' }).first().click();
+    await expect(page).toHaveURL(/\/admin\/instructors\/e2e-instructor/);
+    await expect(page.getByText('e2e-instructor@test.com')).toBeVisible();
+  });
+
+  test('instructor detail page shows courses and sections', async ({ page }) => {
+    const data = await getMainData();
+    await login(page, ADMIN_EMAIL, `/admin/instructors/${encodeURIComponent('e2e-instructor@test.com')}`);
+    await expect(page.getByText('Loading...')).not.toBeVisible({ timeout: 15000 });
+
+    await expect(page.getByText('Courses')).toBeVisible();
+    await expect(page.getByText(data.courseName)).toBeVisible();
+    await expect(page.getByText('E2E Section')).toBeVisible();
+  });
+
+  test('manage TAs button opens modal from detail page', async ({ page }) => {
+    await login(page, ADMIN_EMAIL, `/admin/instructors/${encodeURIComponent('e2e-instructor@test.com')}`);
+    await expect(page.getByText('Loading...')).not.toBeVisible({ timeout: 15000 });
+
+    await page.getByRole('button', { name: 'Manage TAs' }).click();
+    await expect(page.getByText('TAs for e2e-instructor@test.com')).toBeVisible();
+  });
+
+  test('back link returns to instructor list', async ({ page }) => {
+    await login(page, ADMIN_EMAIL, `/admin/instructors/${encodeURIComponent('e2e-instructor@test.com')}`);
+    await expect(page.getByText('Loading...')).not.toBeVisible({ timeout: 15000 });
+
+    await page.getByRole('link', { name: /Back to Instructors/ }).click();
+    await expect(page).toHaveURL(/\/admin\/instructors$/);
+    await expect(page.getByRole('heading', { name: 'Instructors' })).toBeVisible();
+  });
+
+  test('revoked instructor shows warning banner', async ({ page }) => {
+    // Grant then revoke to ensure the user exists but is not an instructor
+    try { await apiPost('/admin/instructors', { email: NEW_INSTRUCTOR_EMAIL }, adminToken); } catch {}
+    await apiDelete(`/admin/instructors/${encodeURIComponent(NEW_INSTRUCTOR_EMAIL)}`, adminToken);
+
+    await login(page, ADMIN_EMAIL, `/admin/instructors/${encodeURIComponent(NEW_INSTRUCTOR_EMAIL)}`);
+    await expect(page.getByText('Loading...')).not.toBeVisible({ timeout: 15000 });
+
+    await expect(page.getByText(/no longer has instructor privileges/i)).toBeVisible();
+  });
+
   // ─── Courses Page ───
 
   test('admin navigates to all courses page', async ({ page }) => {

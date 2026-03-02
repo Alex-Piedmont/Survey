@@ -7,6 +7,7 @@ import { InstructorLayout } from './components/InstructorLayout';
 import { LoginPage } from './pages/LoginPage';
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
 import { AdminInstructorsPage } from './pages/admin/AdminInstructorsPage';
+import { AdminInstructorDetailPage } from './pages/admin/AdminInstructorDetailPage';
 import { AdminCoursesPage } from './pages/admin/AdminCoursesPage';
 import { StudentSession } from './pages/StudentSession';
 import { MySubmissions } from './pages/MySubmissions';
@@ -41,6 +42,7 @@ function App() {
             >
               <Route index element={<AdminDashboardPage />} />
               <Route path="instructors" element={<AdminInstructorsPage />} />
+              <Route path="instructors/:email" element={<AdminInstructorDetailPage />} />
               <Route path="courses" element={<AdminCoursesPage />} />
             </Route>
 
